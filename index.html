@@ -1133,7 +1133,19 @@ function mkHash(email,plan){var inp=email.toLowerCase().trim()+plan+LS;var h=0;f
 function verifyKey(key,email){
   if(!key||!email)return{valid:false,msg:'Email and key required'};
   try{var rev=JSON.parse(localStorage.getItem('zb_rev')||'[]');if(rev.some(function(r){return r.email.toLowerCase()===email.toLowerCase().trim();}))return{valid:false,revoked:true,msg:'License suspended. Contact support.'};}catch(e){}
-  try{var parts=key.toUpperCase().split('-');if(parts.length!==4||parts[0]!=='ZNT')return{valid:false,msg:'Invalid key format'};var pm={S:'starter',P:'professional',E:'enterprise'};var plan=pm[parts[1]];if(!plan)return{valid:false,msg:'Unknown plan'};if(parts[2]!==mkHash(email.toLowerCase().trim(),plan))return{valid:false,msg:'Key does not match email'};var code=parts[3];if(code!=='0000'){var mm=parseInt(code.slice(0,2)),yy=parseInt('20'+code.slice(2));if(new Date()>new Date(yy,mm,1))return{valid:false,expired:true,msg:'License expired'};}return{valid:true,plan:plan,code:code};}catch(e){return{valid:false,msg:'Verification error'};}
+  try{
+    var parts=key.toUpperCase().split('-');
+    var planCode,platCode,hashPart,code;
+    if(parts.length===5&&parts[0]==='ZNT'){planCode=parts[1];platCode=parts[2];hashPart=parts[3];code=parts[4];}
+    else if(parts.length===4&&parts[0]==='ZNT'){planCode=parts[1];platCode='A';hashPart=parts[2];code=parts[3];}
+    else return{valid:false,msg:'Invalid key format'};
+    if(platCode!=='A'&&platCode.indexOf('B')<0)return{valid:false,msg:'This license does not include Zentra Books access'};
+    var pm={S:'starter',P:'professional',E:'enterprise'};var plan=pm[planCode];
+    if(!plan)return{valid:false,msg:'Unknown plan'};
+    if(hashPart!==mkHash(email.toLowerCase().trim(),plan))return{valid:false,msg:'Key does not match email'};
+    if(code!=='0000'){var mm=parseInt(code.slice(0,2)),yy=parseInt('20'+code.slice(2));if(new Date()>new Date(yy,mm,1))return{valid:false,expired:true,msg:'License expired'};}
+    return{valid:true,plan:plan,code:code};
+  }catch(e){return{valid:false,msg:'Verification error'};}
 }
 function sessOk(){var t=sessionStorage.getItem('zb_tok'),e=parseInt(sessionStorage.getItem('zb_exp')||'0'),em=sessionStorage.getItem('zb_em');if(!t||!e||!em)return false;if(Date.now()>e){sessionStorage.clear();return false;}try{var uk='zb_user_'+em.replace(/[^a-z0-9]/g,'_');var u=JSON.parse(localStorage.getItem(uk)||'{}');if(u.email!==em){sessionStorage.clear();return false;}}catch(x){return false;}return true;}
 function mkSess(email){sessionStorage.setItem('zb_tok',Math.random().toString(36)+Date.now().toString(36));sessionStorage.setItem('zb_exp',String(Date.now()+8*60*60*1000));sessionStorage.setItem('zb_em',email);}
