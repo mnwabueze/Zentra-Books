@@ -445,6 +445,9 @@ tbody td{padding:12px 14px;font-size:13px;color:var(--text2);vertical-align:midd
         <div class="nav-item" onclick="showPage('coa',this)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Chart of Accounts
         </div>
+        <div class="nav-item" onclick="showPage('payroll',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Payroll
+        </div>
         <div class="nav-item" onclick="showPage('stocksync',this)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Stock Sync
           <span id="sync-badge" class="nav-badge" style="display:none">!</span>
@@ -894,6 +897,167 @@ tbody td{padding:12px 14px;font-size:13px;color:var(--text2);vertical-align:midd
         </div>
       </div>
 
+      <!-- ══ PAYROLL ══ -->
+      <div id="page-payroll" style="display:none">
+        <div class="tab-bar">
+          <div class="tab-item active" onclick="switchTab(this,'pr-employees','pr-tabs')">👥 Employees</div>
+          <div class="tab-item" onclick="switchTab(this,'pr-run','pr-tabs')">▶ Run Payroll</div>
+          <div class="tab-item" onclick="switchTab(this,'pr-history','pr-tabs')">📋 Payroll History</div>
+          <div class="tab-item" onclick="switchTab(this,'pr-settings','pr-tabs')">⚙ Payroll Settings</div>
+        </div>
+        <div id="pr-tabs">
+
+          <!-- Employees -->
+          <div class="tab-pane active" id="pr-employees">
+            <div class="card">
+              <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+                <span>Employee Register</span>
+                <button class="btn btn-primary btn-sm" onclick="showModal('pr-emp-modal')">+ Add Employee</button>
+              </div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse">
+                  <thead><tr style="border-bottom:2px solid var(--border)">
+                    <th>Name</th><th>Job Title</th><th>Dept</th>
+                    <th>Gross Pay</th><th>Pay Period</th><th>Status</th><th>Actions</th>
+                  </tr></thead>
+                  <tbody id="pr-emp-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Run Payroll -->
+          <div class="tab-pane" id="pr-run">
+            <div class="card" style="max-width:700px">
+              <div class="card-title">Run Payroll</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                <div><label>Pay Period</label>
+                  <select id="pr-period" style="margin:4px 0 0">
+                    <option value="monthly">Monthly</option>
+                    <option value="biweekly">Bi-Weekly</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                </div>
+                <div><label>Payroll Date</label>
+                  <input type="date" id="pr-date" style="margin:4px 0 0"/>
+                </div>
+              </div>
+              <div><label>Include Employees</label>
+                <div id="pr-emp-checklist" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius2);padding:8px;margin:4px 0 12px;display:grid;gap:4px"></div>
+              </div>
+              <button class="btn btn-primary" onclick="calculatePayroll()">Calculate Payroll →</button>
+              <div id="pr-calc-result" style="margin-top:16px"></div>
+              <div id="pr-post-btn" style="display:none;margin-top:12px">
+                <button class="btn btn-success" onclick="postPayrollToJournal()">✓ Post to Journal &amp; Save</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div class="tab-pane" id="pr-history">
+            <div class="card">
+              <div class="card-title">Payroll History</div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse">
+                  <thead><tr style="border-bottom:2px solid var(--border)">
+                    <th>Date</th><th>Period</th><th>Employees</th>
+                    <th>Gross</th><th>Deductions</th><th>Net</th><th>Actions</th>
+                  </tr></thead>
+                  <tbody id="pr-hist-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payroll Settings -->
+          <div class="tab-pane" id="pr-settings">
+            <div class="card" style="max-width:560px">
+              <div class="card-title">Payroll Settings</div>
+              <div class="fg"><label>Pension — Employee Contribution (%)</label>
+                <input type="number" id="prs-pen-ee" value="8" min="0" max="100"/></div>
+              <div class="fg"><label>Pension — Employer Contribution (%)</label>
+                <input type="number" id="prs-pen-er" value="10" min="0" max="100"/></div>
+              <div class="fg"><label>NHF Contribution (%)</label>
+                <input type="number" id="prs-nhf" value="2.5" min="0" max="100"/></div>
+              <div class="fg"><label>PAYE Relief — Consolidated (₦/month)</label>
+                <input type="number" id="prs-relief" value="200000"/></div>
+              <div class="fg"><label>Salary Expense Account (COA Code)</label>
+                <input id="prs-salary-acc" value="5130" placeholder="e.g. 5130"/></div>
+              <div class="fg"><label>Tax Payable Account (COA Code)</label>
+                <input id="prs-tax-acc" value="2210" placeholder="e.g. 2210"/></div>
+              <div class="fg"><label>Pension Payable Account (COA Code)</label>
+                <input id="prs-pen-acc" value="2220" placeholder="e.g. 2220"/></div>
+              <div class="fg"><label>Wages Payable Account (COA Code)</label>
+                <input id="prs-wages-acc" value="2500" placeholder="e.g. 2500"/></div>
+              <button class="btn btn-primary" onclick="savePayrollSettings()">💾 Save Settings</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Payroll Employee Modal -->
+      <div class="modal-overlay" id="pr-emp-modal" style="display:none">
+        <div class="modal">
+          <div class="mhdr">
+            <h2 id="pr-emp-modal-title">Add Employee</h2>
+            <button class="mx" onclick="closeModal('pr-emp-modal')">✕</button>
+          </div>
+          <div class="mbody">
+          <input type="hidden" id="pr-emp-id"/>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="fg"><label>Full Name *</label><input id="pre-name"/></div>
+            <div class="fg"><label>Job Title</label><input id="pre-title" placeholder="Accountant, Driver..."/></div>
+            <div class="fg"><label>Department</label><input id="pre-dept" placeholder="Finance, Operations..."/></div>
+            <div class="fg"><label>Employment Type</label>
+              <select id="pre-type">
+                <option value="fulltime">Full-Time</option>
+                <option value="parttime">Part-Time</option>
+                <option value="contract">Contract</option>
+              </select>
+            </div>
+            <div class="fg"><label>Gross Monthly Pay (₦) *</label><input type="number" id="pre-gross" placeholder="0.00"/></div>
+            <div class="fg"><label>Pay Period</label>
+              <select id="pre-period">
+                <option value="monthly">Monthly</option>
+                <option value="biweekly">Bi-Weekly</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+            <div class="fg"><label>Bank Name</label><input id="pre-bank" placeholder="GTBank"/></div>
+            <div class="fg"><label>Account Number</label><input id="pre-acct" placeholder="0123456789"/></div>
+            <div class="fg"><label>Start Date</label><input type="date" id="pre-start"/></div>
+            <div class="fg"><label>Status</label>
+              <select id="pre-status">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg"><label>Notes</label><textarea id="pre-notes" rows="2"></textarea></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-primary" onclick="saveEmployee()">Save Employee</button>
+            <button class="btn btn-ol" onclick="closeModal('pr-emp-modal')">Cancel</button>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payslip Preview Modal -->
+      <div class="modal-overlay" id="pr-slip-modal" style="display:none">
+        <div class="modal narrow">
+          <div class="mhdr">
+            <h2>Payslip</h2>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn btn-primary btn-sm" onclick="printPayslip()">🖨 Print</button>
+              <button class="btn btn-ol btn-sm" onclick="sendPayslipWA()">📱 WhatsApp</button>
+              <button class="mx" onclick="closeModal('pr-slip-modal')">✕</button>
+            </div>
+          </div>
+          <div class="mbody" id="pr-slip-content" style="font-size:13px"></div>
+        </div>
+      </div>
+
       <!-- ══ SETTINGS ══ -->
       <div id="page-settings" style="display:none">
         <div class="tab-bar">
@@ -1187,6 +1351,9 @@ var DEFAULT_COA = [
   {code:'2300',name:'Bank Loan',type:'Liability',subType:'Loan',tax:'None',balance:0,desc:'Bank or investor loans',system:false},
   {code:'2400',name:'Customer Deposits',type:'Liability',subType:'Current Liability',tax:'None',balance:0,desc:'Advance payments from customers',system:false},
   {code:'2500',name:'Salaries Payable',type:'Liability',subType:'Current Liability',tax:'None',balance:0,desc:'Salaries earned not yet paid',system:false},
+  {code:'2210',name:'PAYE Tax Payable',type:'Liability',subType:'Tax Liability',tax:'None',balance:0,desc:'PAYE deducted from staff salaries, due to FIRS',system:false},
+  {code:'2220',name:'Pension Payable',type:'Liability',subType:'Current Liability',tax:'None',balance:0,desc:'Employee & employer pension contributions due to PFA',system:false},
+  {code:'2230',name:'NHF Payable',type:'Liability',subType:'Current Liability',tax:'None',balance:0,desc:'National Housing Fund deductions due to FMBN',system:false},
   // Equity 3xxx
   {code:'3001',name:"Owner's Capital",type:'Equity',subType:"Owner's Equity",tax:'None',balance:0,desc:'Capital invested by owner',system:true},
   {code:'3100',name:'Retained Earnings',type:'Equity',subType:'Retained Earnings',tax:'None',balance:0,desc:'Accumulated profits kept in business',system:true},
@@ -1225,7 +1392,7 @@ var COA_SUBTYPES = {
 
 // ── LOAD / SAVE ─────────────────────────────────────────────
 function loadState(){
-  var keys=['chartOfAccounts','journalEntries','bankAccounts','bankTransactions','receivables','payables','syncLog'];
+  var keys=['chartOfAccounts','journalEntries','bankAccounts','bankTransactions','receivables','payables','syncLog','employees','payrollRuns','payrollSettings'];
   keys.forEach(function(k){try{var v=localStorage.getItem(skv(k));if(v)S[k]=JSON.parse(v);}catch(e){}});
   try{var sg=localStorage.getItem(skv('settings'));if(sg)S.settings=Object.assign(S.settings,JSON.parse(sg));}catch(e){}
   try{var n=localStorage.getItem(skv('nextJE'));if(n)S.nextJENum=parseInt(n);}catch(e){}
@@ -2068,6 +2235,383 @@ function toast(msg,type){var t=document.createElement('div');t.className='t-msg'
     }
   }
 })();
+
+// ═══════════════════════════════════════════════════════════
+// ZENTRA BOOKS — PAYROLL MODULE
+// ═══════════════════════════════════════════════════════════
+
+// ── State helpers ──────────────────────────────────────────
+function getEmployees(){ return S.employees || []; }
+function getPayrollRuns(){ return S.payrollRuns || []; }
+function getPayrollSettings(){
+  return S.payrollSettings || {
+    pensionEE: 8, pensionER: 10, nhf: 2.5, relief: 200000,
+    salaryAcc:'5130', taxAcc:'2210', penAcc:'2220', wagesAcc:'2500'
+  };
+}
+
+// ── PAYE calculator (Nigerian simplified bands 2024) ──────
+function calcPAYE(annualTaxable){
+  // Annual relief already subtracted by caller
+  var tax = 0;
+  var bands = [[300000,7],[300000,11],[500000,15],[500000,19],[1600000,21],[0,24]];
+  var remaining = Math.max(0, annualTaxable);
+  bands.forEach(function(b){
+    var limit = b[0] || remaining;
+    var taxable = Math.min(remaining, limit);
+    tax += taxable * b[1] / 100;
+    remaining -= taxable;
+  });
+  return Math.max(0, tax / 12); // monthly
+}
+
+// ── Employee CRUD ──────────────────────────────────────────
+function saveEmployee(){
+  var name = document.getElementById('pre-name').value.trim();
+  var gross = parseFloat(document.getElementById('pre-gross').value)||0;
+  if(!name || !gross){ toast('Name and gross pay required.','error'); return; }
+  S.employees = S.employees || [];
+  var id = document.getElementById('pr-emp-id').value;
+  var emp = {
+    id: id || 'EMP-'+Date.now(),
+    name: name,
+    title: document.getElementById('pre-title').value.trim(),
+    dept: document.getElementById('pre-dept').value.trim(),
+    type: document.getElementById('pre-type').value,
+    gross: gross,
+    period: document.getElementById('pre-period').value,
+    bank: document.getElementById('pre-bank').value.trim(),
+    acctNum: document.getElementById('pre-acct').value.trim(),
+    startDate: document.getElementById('pre-start').value,
+    status: document.getElementById('pre-status').value,
+    notes: document.getElementById('pre-notes').value.trim(),
+    createdAt: new Date().toISOString()
+  };
+  if(id){
+    var idx = S.employees.findIndex(function(e){ return e.id===id; });
+    if(idx>=0) S.employees[idx] = emp; else S.employees.push(emp);
+  } else { S.employees.push(emp); }
+  saveState('employees');
+  closeModal('pr-emp-modal');
+  renderEmployees();
+  populatePayrollChecklist();
+  toast('Employee saved!','success');
+}
+
+function editEmployee(id){
+  var emp = getEmployees().find(function(e){ return e.id===id; });
+  if(!emp) return;
+  document.getElementById('pr-emp-id').value = emp.id;
+  document.getElementById('pr-emp-modal-title').textContent = 'Edit Employee';
+  document.getElementById('pre-name').value = emp.name;
+  document.getElementById('pre-title').value = emp.title||'';
+  document.getElementById('pre-dept').value = emp.dept||'';
+  document.getElementById('pre-type').value = emp.type||'fulltime';
+  document.getElementById('pre-gross').value = emp.gross||'';
+  document.getElementById('pre-period').value = emp.period||'monthly';
+  document.getElementById('pre-bank').value = emp.bank||'';
+  document.getElementById('pre-acct').value = emp.acctNum||'';
+  document.getElementById('pre-start').value = emp.startDate||'';
+  document.getElementById('pre-status').value = emp.status||'active';
+  document.getElementById('pre-notes').value = emp.notes||'';
+  showModal('pr-emp-modal');
+}
+
+function deleteEmployee(id){
+  if(!confirm('Delete this employee?')) return;
+  S.employees = getEmployees().filter(function(e){ return e.id!==id; });
+  saveState('employees');
+  renderEmployees();
+  populatePayrollChecklist();
+  toast('Employee removed.','warn');
+}
+
+function renderEmployees(){
+  var tbody = document.getElementById('pr-emp-tbody');
+  var emps = getEmployees();
+  if(!emps.length){
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">No employees yet. Add your first employee to get started.</td></tr>';
+    return;
+  }
+  var C = S.settings && S.settings.currSym ? S.settings.currSym : '₦';
+  tbody.innerHTML = emps.map(function(e){
+    return '<tr style="border-bottom:1px solid var(--border)">'+
+      '<td><strong>'+esc(e.name)+'</strong>'+(e.title?'<br><span style="font-size:11px;color:var(--text3)">'+esc(e.title)+'</span>':'')+'</td>'+
+      '<td>'+esc(e.title||'—')+'</td>'+
+      '<td>'+esc(e.dept||'—')+'</td>'+
+      '<td style="font-family:var(--mono)">'+C+fmt2(e.gross)+'</td>'+
+      '<td style="text-transform:capitalize">'+e.period+'</td>'+
+      '<td><span style="background:'+(e.status==='active'?'rgba(16,185,129,.15)':'rgba(239,68,68,.12)')+';color:'+(e.status==='active'?'#10B981':'#EF4444')+';border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">'+e.status+'</span></td>'+
+      '<td style="display:flex;gap:6px">'+
+        '<button class="btn btn-ol btn-sm" onclick="editEmployee(\''+e.id+'\')">✏️</button>'+
+        '<button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:#EF4444" onclick="deleteEmployee(\''+e.id+'\')">🗑</button>'+
+      '</td></tr>';
+  }).join('');
+}
+
+// ── Payroll Calculation ────────────────────────────────────
+var currentPayrollCalc = null;
+
+function populatePayrollChecklist(){
+  var el = document.getElementById('pr-emp-checklist');
+  if(!el) return;
+  var emps = getEmployees().filter(function(e){ return e.status==='active'; });
+  if(!emps.length){ el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px">No active employees</div>'; return; }
+  el.innerHTML = emps.map(function(e){
+    return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:13px">'+
+      '<input type="checkbox" value="'+e.id+'" checked style="accent-color:var(--brand)"/> '+
+      esc(e.name)+' <span style="color:var(--text3);font-size:11px">('+e.dept+(e.title?' · '+e.title:'')+')</span></label>';
+  }).join('');
+}
+
+function calculatePayroll(){
+  var C = S.settings && S.settings.currSym ? S.settings.currSym : '₦';
+  var ps = getPayrollSettings();
+  var selectedIds = Array.from(document.querySelectorAll('#pr-emp-checklist input:checked')).map(function(i){ return i.value; });
+  if(!selectedIds.length){ toast('Select at least one employee.','error'); return; }
+  var period = document.getElementById('pr-period').value;
+  var date = document.getElementById('pr-date').value || today();
+
+  var lines = [];
+  var totalGross = 0, totalTax = 0, totalPenEE = 0, totalPenER = 0, totalNHF = 0, totalNet = 0;
+
+  getEmployees().filter(function(e){ return selectedIds.includes(e.id); }).forEach(function(emp){
+    var gross = emp.gross;
+    // Adjust for period
+    if(period==='biweekly') gross = gross/2;
+    if(period==='weekly') gross = gross/4;
+
+    var penEE = gross * ps.pensionEE / 100;
+    var penER = gross * ps.pensionER / 100;
+    var nhf = gross * ps.nhf / 100;
+
+    // PAYE: annual taxable = annual gross - annual pension EE - annual NHF - consolidated relief
+    var annualGross = gross * 12;
+    var annualRelief = Math.max(ps.relief, 0.01 * annualGross); // higher of 200k or 1%
+    var taxableIncome = annualGross - (penEE*12) - (nhf*12) - annualRelief;
+    var paye = calcPAYE(taxableIncome);
+
+    var net = gross - penEE - nhf - paye;
+
+    totalGross += gross; totalTax += paye; totalPenEE += penEE;
+    totalPenER += penER; totalNHF += nhf; totalNet += net;
+
+    lines.push({ emp:emp, gross:gross, penEE:penEE, penER:penER, nhf:nhf, paye:paye, net:net });
+  });
+
+  currentPayrollCalc = { date:date, period:period, lines:lines, totalGross:totalGross, totalTax:totalTax, totalPenEE:totalPenEE, totalPenER:totalPenER, totalNHF:totalNHF, totalNet:totalNet };
+
+  // Render summary table
+  var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+    '<thead><tr style="background:var(--surface2);border-bottom:2px solid var(--border)">'+
+    '<th>Employee</th><th style="text-align:right">Gross</th>'+
+    '<th style="text-align:right">Pension (EE)</th><th style="text-align:right">NHF</th>'+
+    '<th style="text-align:right">PAYE</th><th style="text-align:right;color:var(--success)">Net Pay</th>'+
+    '<th></th></tr></thead><tbody>'+
+    lines.map(function(l){
+      return '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td><strong>'+esc(l.emp.name)+'</strong></td>'+
+        '<td style="text-align:right;font-family:var(--mono)">'+C+fmt2(l.gross)+'</td>'+
+        '<td style="text-align:right;font-family:var(--mono);color:var(--text3)">-'+C+fmt2(l.penEE)+'</td>'+
+        '<td style="text-align:right;font-family:var(--mono);color:var(--text3)">-'+C+fmt2(l.nhf)+'</td>'+
+        '<td style="text-align:right;font-family:var(--mono);color:var(--text3)">-'+C+fmt2(l.paye)+'</td>'+
+        '<td style="text-align:right;font-family:var(--mono);font-weight:700;color:#10B981">'+C+fmt2(l.net)+'</td>'+
+        '<td><button class="btn btn-ol btn-sm" onclick="previewPayslip(\''+l.emp.id+'\')">📄 Slip</button></td>'+
+      '</tr>';
+    }).join('')+
+    '<tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border)">'+
+      '<td>TOTALS</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+C+fmt2(totalGross)+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+C+fmt2(totalPenEE)+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+C+fmt2(totalNHF)+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+C+fmt2(totalTax)+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono);color:#10B981">'+C+fmt2(totalNet)+'</td>'+
+      '<td></td></tr>'+
+    '</tbody></table></div>'+
+    '<div style="background:var(--surface2);border-radius:8px;padding:12px;margin-top:12px;font-size:12px;color:var(--text3)">'+
+    '🏦 Employer pension contribution: <strong>'+C+fmt2(totalPenER)+'</strong> · '+
+    'Total payroll cost: <strong>'+C+fmt2(totalGross+totalPenER)+'</strong></div>';
+  document.getElementById('pr-calc-result').innerHTML = html;
+  document.getElementById('pr-post-btn').style.display = 'block';
+}
+
+function postPayrollToJournal(){
+  if(!currentPayrollCalc){ toast('Calculate payroll first.','error'); return; }
+  var ps = getPayrollSettings();
+  var C = S.settings && S.settings.currSym ? S.settings.currSym : '₦';
+  var calc = currentPayrollCalc;
+  var jeId = genJEId();
+  var totalDeductions = calc.totalTax + calc.totalPenEE + calc.totalNHF;
+
+  // Build journal entry lines
+  // DR Salary Expense (gross)        CR PAYE Payable
+  // DR Salary Expense (employer pen) CR Pension Payable (EE + ER)
+  //                                  CR Wages Payable (net)
+  var lines = [
+    { accountCode: ps.salaryAcc,  accountName: 'Staff Salaries (Gross + Employer Pension)', debit: calc.totalGross + calc.totalPenER, credit: 0 },
+    { accountCode: ps.taxAcc,     accountName: 'PAYE Tax Payable',        debit: 0, credit: calc.totalTax },
+    { accountCode: ps.penAcc,     accountName: 'Pension Payable',         debit: 0, credit: calc.totalPenEE + calc.totalPenER },
+    { accountCode: '2230',        accountName: 'NHF Payable',             debit: 0, credit: calc.totalNHF },
+    { accountCode: ps.wagesAcc,   accountName: 'Salaries Payable (Net)',  debit: 0, credit: calc.totalNet }
+  ];
+
+  var je = {
+    id: jeId, ref: genJERef(), type: 'payroll',
+    date: calc.date,
+    description: 'Payroll — '+calc.period+' ('+calc.lines.length+' employees) — '+calc.date,
+    lines: lines,
+    postedAt: new Date().toISOString(),
+    payrollSummary: { gross: calc.totalGross, tax: calc.totalTax, penEE: calc.totalPenEE, penER: calc.totalPenER, nhf: calc.totalNHF, net: calc.totalNet, count: calc.lines.length }
+  };
+
+  S.journalEntries = S.journalEntries || [];
+  S.journalEntries.push(je);
+  updateCOABalance(je);
+
+  // Save payroll run
+  S.payrollRuns = S.payrollRuns || [];
+  S.payrollRuns.push({
+    id: 'PR-'+Date.now(),
+    date: calc.date,
+    period: calc.period,
+    jeId: jeId,
+    lines: calc.lines.map(function(l){ return { empId: l.emp.id, name: l.emp.name, gross: l.gross, penEE: l.penEE, penER: l.penER, nhf: l.nhf, paye: l.paye, net: l.net }; }),
+    totals: { gross: calc.totalGross, tax: calc.totalTax, penEE: calc.totalPenEE, penER: calc.totalPenER, nhf: calc.totalNHF, net: calc.totalNet },
+    postedAt: new Date().toISOString()
+  });
+
+  saveState('journalEntries');
+  saveState('payrollRuns');
+  saveState('chartOfAccounts');
+
+  currentPayrollCalc = null;
+  document.getElementById('pr-calc-result').innerHTML = '<div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:16px;color:#10B981;font-weight:600">✅ Payroll posted to journal as '+jeId+'</div>';
+  document.getElementById('pr-post-btn').style.display = 'none';
+  renderPayrollHistory();
+  renderDashboard();
+  toast('Payroll posted to journal!','success');
+}
+
+// ── Payslip ───────────────────────────────────────────────
+var currentSlip = null;
+function previewPayslip(empId){
+  if(!currentPayrollCalc) return;
+  var line = currentPayrollCalc.lines.find(function(l){ return l.emp.id===empId; });
+  if(!line) return;
+  currentSlip = line;
+  var C = S.settings && S.settings.currSym ? S.settings.currSym : '₦';
+  var biz = (S.settings && S.settings.bizName) || 'Company';
+  var html =
+    '<div style="border-bottom:2px solid var(--brand);padding-bottom:12px;margin-bottom:12px;display:flex;justify-content:space-between">'+
+      '<div><div style="font-size:16px;font-weight:800;color:var(--brand)">'+esc(biz)+'</div><div style="font-size:11px;color:var(--text3)">PAYSLIP</div></div>'+
+      '<div style="text-align:right;font-size:11px;color:var(--text3)">'+currentPayrollCalc.date+'<br>Period: '+currentPayrollCalc.period+'</div>'+
+    '</div>'+
+    '<div style="background:var(--surface2);border-radius:8px;padding:10px;margin-bottom:12px">'+
+      '<div style="font-weight:700">'+esc(line.emp.name)+'</div>'+
+      '<div style="font-size:11px;color:var(--text3)">'+esc(line.emp.title||'')+(line.emp.dept?' · '+esc(line.emp.dept):'')+'</div>'+
+      (line.emp.bank?'<div style="font-size:11px;color:var(--text3)">'+esc(line.emp.bank)+' · '+esc(line.emp.acctNum||'')+'</div>':'')+
+    '</div>'+
+    '<div style="font-size:13px">'+
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Gross Pay</span><span style="font-family:var(--mono);font-weight:700">'+C+fmt2(line.gross)+'</span></div>'+
+      '<div style="padding:8px 0;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Deductions</div>'+
+      '<div style="display:flex;justify-content:space-between;padding:5px 0;color:var(--text2)"><span>Pension (Employee '+getPayrollSettings().pensionEE+'%)</span><span style="font-family:var(--mono)">- '+C+fmt2(line.penEE)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;padding:5px 0;color:var(--text2)"><span>NHF ('+getPayrollSettings().nhf+'%)</span><span style="font-family:var(--mono)">- '+C+fmt2(line.nhf)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;padding:5px 0;color:var(--text2)"><span>PAYE Tax</span><span style="font-family:var(--mono)">- '+C+fmt2(line.paye)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--brand);margin-top:4px;font-size:15px;font-weight:800;color:var(--brand)"><span>NET PAY</span><span style="font-family:var(--mono)">'+C+fmt2(line.net)+'</span></div>'+
+    '</div>';
+  document.getElementById('pr-slip-content').innerHTML = html;
+  showModal('pr-slip-modal');
+}
+
+function printPayslip(){
+  var content = document.getElementById('pr-slip-content').innerHTML;
+  var biz = (S.settings && S.settings.bizName) || 'Company';
+  var w = window.open('','_blank','width=480,height=600');
+  if(!w){ toast('Allow popups to print.','error'); return; }
+  w.document.write('<!DOCTYPE html><html><head><title>Payslip</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#111;font-size:13px}.brand{color:#6366F1;font-weight:800;font-size:16px}</style></head><body>'+content+'</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.focus(); w.print(); }, 400);
+}
+
+function sendPayslipWA(){
+  if(!currentSlip){ return; }
+  var C = S.settings && S.settings.currSym ? S.settings.currSym : '₦';
+  var biz = (S.settings && S.settings.bizName) || 'Company';
+  var l = currentSlip;
+  var msg = 'PAYSLIP — '+biz+'\n\n'+
+    'Employee: '+l.emp.name+'\n'+
+    'Period: '+currentPayrollCalc.period+' · '+currentPayrollCalc.date+'\n\n'+
+    'Gross Pay:       '+C+fmt2(l.gross)+'\n'+
+    'Pension (EE):  - '+C+fmt2(l.penEE)+'\n'+
+    'NHF:           - '+C+fmt2(l.nhf)+'\n'+
+    'PAYE Tax:      - '+C+fmt2(l.paye)+'\n'+
+    '─────────────────────\n'+
+    'NET PAY:         '+C+fmt2(l.net)+'\n\n'+
+    (l.emp.bank?'Bank: '+l.emp.bank+' · '+l.emp.acctNum+'\n':'')+
+    '\nPlease confirm receipt. Thank you!';
+  var phone = (l.emp.phone||'').replace(/\D/g,'');
+  window.open('https://wa.me/'+(phone||'')+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+// ── Payroll History ────────────────────────────────────────
+function renderPayrollHistory(){
+  var tbody = document.getElementById('pr-hist-tbody');
+  if(!tbody) return;
+  var runs = getPayrollRuns().slice().reverse();
+  var C = S.settings && S.settings.currSym ? S.settings.currSym : '₦';
+  if(!runs.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">No payroll runs yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = runs.map(function(r){
+    return '<tr style="border-bottom:1px solid var(--border)">'+
+      '<td>'+r.date+'</td>'+
+      '<td style="text-transform:capitalize">'+r.period+'</td>'+
+      '<td>'+r.lines.length+'</td>'+
+      '<td style="font-family:var(--mono)">'+C+fmt2(r.totals.gross)+'</td>'+
+      '<td style="font-family:var(--mono);color:var(--text3)">'+C+fmt2(r.totals.tax+r.totals.penEE+r.totals.nhf)+'</td>'+
+      '<td style="font-family:var(--mono);font-weight:700;color:#10B981">'+C+fmt2(r.totals.net)+'</td>'+
+      '<td><span style="font-size:11px;color:var(--text3)">JE: '+r.jeId+'</span></td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ── Payroll Settings ───────────────────────────────────────
+function savePayrollSettings(){
+  S.payrollSettings = {
+    pensionEE: parseFloat(document.getElementById('prs-pen-ee').value)||8,
+    pensionER: parseFloat(document.getElementById('prs-pen-er').value)||10,
+    nhf: parseFloat(document.getElementById('prs-nhf').value)||2.5,
+    relief: parseFloat(document.getElementById('prs-relief').value)||200000,
+    salaryAcc: document.getElementById('prs-salary-acc').value||'5100',
+    taxAcc: document.getElementById('prs-tax-acc').value||'2200',
+    penAcc: document.getElementById('prs-pen-acc').value||'2201',
+    wagesAcc: document.getElementById('prs-wages-acc').value||'2202'
+  };
+  saveState('payrollSettings');
+  toast('Payroll settings saved!','success');
+}
+
+function loadPayrollSettingsUI(){
+  var ps = getPayrollSettings();
+  var fields = { 'prs-pen-ee':ps.pensionEE, 'prs-pen-er':ps.pensionER, 'prs-nhf':ps.nhf, 'prs-relief':ps.relief,
+    'prs-salary-acc':ps.salaryAcc,'prs-tax-acc':ps.taxAcc,'prs-pen-acc':ps.penAcc,'prs-wages-acc':ps.wagesAcc };
+  Object.keys(fields).forEach(function(id){ var el=document.getElementById(id); if(el) el.value=fields[id]; });
+}
+
+// ── Hook into showPage ─────────────────────────────────────
+var _origShowPage = window.showPage;
+window.showPage = function(id, el){
+  if(typeof _origShowPage === 'function') _origShowPage(id, el);
+  if(id==='payroll'){
+    renderEmployees();
+    renderPayrollHistory();
+    populatePayrollChecklist();
+    loadPayrollSettingsUI();
+    var pr = document.getElementById('pr-date');
+    if(pr && !pr.value) pr.value = today();
+  }
+};
 </script>
 </body>
 </html>
