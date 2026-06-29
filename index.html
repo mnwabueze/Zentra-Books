@@ -346,6 +346,7 @@ input:focus,select:focus,textarea:focus,.form-input:focus{border-color:rgba(79,7
         <div class="fg"><label>Password</label><input type="password" id="login-password" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
         <div id="login-att-info" style="font-size:11px;color:var(--text3);text-align:right;margin-bottom:6px;display:none"></div>
         <button class="btn-primary" onclick="doLogin()">Login to Zentra Books</button>
+        <button onclick="showForgotPwBooks()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;width:100%;text-align:center;margin-top:8px">Forgot password?</button>
         <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:14px">New user? Use the <strong>Activate</strong> tab.</p>
       </div>
       <div id="activate-form" style="display:none">
@@ -1544,6 +1545,15 @@ function saveState(key){
 // ── AUTH ────────────────────────────────────────────────────
 function switchAuthTab(tab,el){document.querySelectorAll('.auth-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');document.getElementById('login-form').style.display=tab==='login'?'block':'none';document.getElementById('activate-form').style.display=tab==='activate'?'block':'none';}
 function goStep(n){[0,1].forEach(function(i){document.querySelectorAll('.step-dot')[i].classList.toggle('active',i===n);});document.getElementById('step-login').style.display=n===0?'block':'none';document.getElementById('step-setup').style.display=n===1?'block':'none';}
+
+function showForgotPwBooks(){
+  var email=(document.getElementById('login-email').value||'').trim();
+  if(!email){toast('Enter your email first.','error');return;}
+  if(!_fbAuth){toast('Connection not ready. Try again.','error');return;}
+  _fbAuth.sendPasswordResetEmail(email).then(function(){
+    toast('Password reset email sent to '+email,'success');
+  }).catch(function(e){toast('Error: '+e.message,'error');});
+}
 
 function doLogin(){
   var lk=isLocked();if(lk){toast('Locked. Try in '+Math.ceil((lk-Date.now())/60000)+' min.','error');return;}
