@@ -312,14 +312,17 @@ tbody td{padding:12px 14px;font-size:13px;color:var(--text2);vertical-align:midd
       </div>
       <div id="login-form">
         <div class="fg"><label>Email Address</label><input type="email" id="login-email" placeholder="you@business.com"/></div>
-        <div class="fg"><label>License Key</label><input type="text" id="login-key" placeholder="ZNTR-P-XXXXXXXX-1226" style="font-family:var(--mono);letter-spacing:1px"/></div>
+        <div class="fg"><label>Password</label><input type="password" id="login-password" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <div id="login-att-info" style="font-size:11px;color:var(--text3);text-align:right;margin-bottom:6px;display:none"></div>
         <button class="btn-primary" onclick="doLogin()">Login to Zentra Books</button>
         <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:14px">New user? Use the <strong>Activate</strong> tab.</p>
       </div>
       <div id="activate-form" style="display:none">
         <div class="alert al-info" style="margin-bottom:14px"><span>ℹ️</span><span>Your license key works across all Zentra apps. The same key activates Zentra Stock, Invoice, and Books.</span></div>
         <div class="fg"><label>Email Address</label><input type="email" id="act-email" placeholder="you@business.com"/></div>
-        <div class="fg"><label>License Key</label><input type="text" id="act-key" placeholder="ZNTR-P-XXXXXXXX-1226" style="font-family:var(--mono);letter-spacing:1px"/></div>
+        <div class="fg"><label>License Key</label><input type="text" id="act-key" placeholder="ZNT-P-A-XXXXXXXX-1226" style="font-family:var(--mono);letter-spacing:1px"/></div>
+        <div class="fg"><label>Create Password <span style="font-size:11px;color:var(--text3)">(min 8 chars, letters + numbers)</span></label><input type="password" id="act-password" placeholder="Create a password"/></div>
+        <div class="fg"><label>Confirm Password</label><input type="password" id="act-password2" placeholder="Re-enter password" onkeydown="if(event.key==='Enter')doActivate()"/></div>
         <button class="btn-primary" onclick="doActivate()">Activate & Setup</button>
       </div>
     </div>
@@ -1307,7 +1310,7 @@ function verifyKey(key,email){
     var pm={S:'starter',P:'professional',E:'enterprise'};var plan=pm[planCode];
     if(!plan)return{valid:false,msg:'Unknown plan'};
     if(hashPart!==mkHash(email.toLowerCase().trim(),plan))return{valid:false,msg:'Key does not match email'};
-    if(code!=='0000'){var mm=parseInt(code.slice(0,2)),yy=parseInt('20'+code.slice(2));if(new Date()>new Date(yy,mm,1))return{valid:false,expired:true,msg:'License expired'};}
+    if(code!=='0000'){var mm=parseInt(code.slice(0,2)),yy=parseInt('20'+code.slice(2));var exp=new Date(yy,mm,1);var grace=new Date('2026-12-31T23:59:59');var eff=exp<grace?grace:exp;if(new Date()>eff)return{valid:false,expired:true,msg:'License expired'};}
     return{valid:true,plan:plan,code:code};
   }catch(e){return{valid:false,msg:'Verification error'};}
 }
@@ -1318,6 +1321,105 @@ function userKey(email){return'zb_user_'+email.replace(/[^a-z0-9]/g,'_');}
 function skv(suffix){var em=S.user&&S.user.email?S.user.email.toLowerCase().replace(/[^a-z0-9]/g,'_'):'default';return'zb_'+em+'_'+suffix;}
 
 // ── STATE ───────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════
+// ZENTRA BOOKS — FIREBASE LAYER
+// localStorage = instant (primary), Firestore = sync (multi-device)
+// ════════════════════════════════════════════════════════
+var FB_CFG = {
+  apiKey:"AIzaSyDCzPfpWGk9Ksu32OvRL0IMK1nUPqtjJuM",
+  authDomain:"zentra-systems.firebaseapp.com",
+  projectId:"zentra-systems",
+  storageBucket:"zentra-systems.firebasestorage.app",
+  messagingSenderId:"488170796854",
+  appId:"1:488170796854:web:237df996701ba6c8ba6597"
+};
+var _fbApp=null,_fbAuth=null,_fbDb=null,_fbReady=false,_fbUser=null;
+var _fbSyncTimer=null;
+
+(function bootFB(){
+  function ld(src,cb){var s=document.createElement('script');s.src=src;s.onload=cb;document.head.appendChild(s);}
+  ld('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',function(){
+    ld('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',function(){
+      ld('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js',function(){
+        _fbApp=firebase.initializeApp(FB_CFG,'books');
+        _fbAuth=firebase.app('books').auth();
+        _fbDb=firebase.app('books').firestore();
+        _fbAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+        _fbReady=true;
+        refreshRevoked();
+      });
+    });
+  });
+})();
+
+function fbUserPath(email){ return 'userData/'+email.replace(/[^a-zA-Z0-9]/g,'-')+'/books'; }
+
+function refreshRevoked(){
+  if(!_fbDb)return;
+  _fbDb.collection('revoked').get().then(function(snap){
+    var rev=[];snap.forEach(function(d){rev.push(d.data());});
+    try{localStorage.setItem('zb_rev',JSON.stringify(rev));}catch(e){}
+  }).catch(function(){});
+}
+
+function schedFBSync(){
+  clearTimeout(_fbSyncTimer);
+  _fbSyncTimer=setTimeout(pushToFB,3000);
+}
+
+function pushToFB(){
+  if(!_fbDb||!S.user||!S.user.email)return;
+  var em=S.user.email;
+  var keys=['chartOfAccounts','journalEntries','bankAccounts','bankTransactions','receivables','payables','employees','payrollRuns','payrollSettings'];
+  var payload={email:em,updatedAt:new Date().toISOString()};
+  keys.forEach(function(k){if(S[k])payload[k]=S[k];});
+  payload.settings=S.settings||{};
+  payload.nextJENum=S.nextJENum;
+  _fbDb.doc(fbUserPath(em)+'/data').set(payload,{merge:true}).catch(function(){});
+}
+
+function pullFromFB(email,cb){
+  if(!_fbDb){if(cb)cb(false);return;}
+  _fbDb.doc(fbUserPath(email)+'/data').get().then(function(doc){
+    if(!doc.exists){if(cb)cb(false);return;}
+    var d=doc.data();
+    var keys=['chartOfAccounts','journalEntries','bankAccounts','bankTransactions','receivables','payables','employees','payrollRuns','payrollSettings'];
+    var merged=false;
+    keys.forEach(function(k){
+      if(d[k]&&(!S[k]||!S[k].length)){
+        S[k]=d[k];merged=true;
+        try{localStorage.setItem(skv(k),JSON.stringify(d[k]));}catch(e){}
+      }
+    });
+    if(d.settings)S.settings=Object.assign(S.settings||{},d.settings);
+    if(d.nextJENum&&!S.nextJENum)S.nextJENum=d.nextJENum;
+    if(cb)cb(merged);
+  }).catch(function(){if(cb)cb(false);});
+}
+
+function fbSignIn(email,pw,ok,fail){
+  if(!_fbAuth){fail('Firebase not ready');return;}
+  _fbAuth.signInWithEmailAndPassword(email,pw)
+    .then(function(c){_fbUser=c.user;ok(c.user);})
+    .catch(function(e){fail(e.message,e.code);});
+}
+
+function fbCreateAcct(email,pw,ok,fail){
+  if(!_fbAuth){fail('Firebase not ready');return;}
+  _fbAuth.createUserWithEmailAndPassword(email,pw)
+    .then(function(c){_fbUser=c.user;c.user.sendEmailVerification().catch(function(){});ok(c.user);})
+    .catch(function(e){
+      if(e.code==='auth/email-already-in-use'){fbSignIn(email,pw,ok,fail);}
+      else{fail(e.message,e.code);}
+    });
+}
+
+function fbSignOut(){if(_fbAuth)_fbAuth.signOut().catch(function(){});_fbUser=null;}
+
+function checkPwStrengthBooks(pw){
+  return pw.length>=8&&/[A-Za-z]/.test(pw)&&/[0-9]/.test(pw);
+}
+
 var S = {
   user: null,
   settings: {bizName:'',name:'',addr:'',phone:'',taxNum:'',currency:'NGN',currSym:'&#8358;',method:'accrual',vatRegistered:false,vatRate:7.5,vatNum:'',whtRate:5,fyStart:1,fyYear:new Date().getFullYear()},
@@ -1405,6 +1507,7 @@ function loadState(){
 function saveState(key){
   try{localStorage.setItem(skv(key),JSON.stringify(S[key]));}catch(e){}
   if(key==='journalEntries')localStorage.setItem(skv('nextJE'),String(S.nextJENum));
+  schedFBSync();
 }
 
 // ── AUTH ────────────────────────────────────────────────────
@@ -1414,30 +1517,81 @@ function goStep(n){[0,1].forEach(function(i){document.querySelectorAll('.step-do
 function doLogin(){
   var lk=isLocked();if(lk){toast('Locked. Try in '+Math.ceil((lk-Date.now())/60000)+' min.','error');return;}
   var email=document.getElementById('login-email').value.trim().toLowerCase();
-  var key=document.getElementById('login-key').value.trim();
-  if(!email||!key){toast('Enter email and key.','error');return;}
-  var res=verifyKey(key,email);
+  var pw=(document.getElementById('login-password')||{}).value||'';
+  if(!email||!pw){toast('Enter email and password.','error');return;}
+
+  var uk=userKey(email);
+  var saved=localStorage.getItem(uk);
+
+  function onOk(user){
+    resetAtt();mkSess(email);loadState();launchApp();
+    pullFromFB(email,function(merged){
+      if(merged){try{renderDashboard();}catch(e){}toast('✅ Data synced from cloud.','success');}
+    });
+  }
+  function onFail(msg,code){
+    recFail();
+    document.getElementById('auth-card').style.animation='shake .4s ease';
+    setTimeout(function(){document.getElementById('auth-card').style.animation='';},400);
+    var m='Incorrect password.';
+    if(code==='auth/too-many-requests')m='Too many attempts. Try later.';
+    toast(m,'error');
+  }
+
+  if(!saved){
+    fbSignIn(email,pw,function(user){
+      pullFromFB(email,function(merged){
+        var saved2=localStorage.getItem(uk);
+        if(!saved2){toast('Account not found. Use Activate tab.','error');fbSignOut();return;}
+        var u=JSON.parse(saved2);
+        var res=verifyKey(u.key,email);
+        if(!res.valid){toast(res.msg||'License invalid.','error');fbSignOut();return;}
+        S.user=u;S.user.plan=res.plan;
+        onOk(user);
+        if(merged)toast('✅ Data restored from cloud.','success');
+      });
+    },onFail);
+    return;
+  }
+
+  var u=JSON.parse(saved);
+  var res=verifyKey(u.key,email);
   if(!res.valid){recFail();document.getElementById('auth-card').style.animation='shake .4s ease';setTimeout(function(){document.getElementById('auth-card').style.animation='';},400);toast((res.revoked?'Suspended: ':res.expired?'Expired: ':'')+res.msg,'error');return;}
-  var uk=userKey(email);var saved=localStorage.getItem(uk);if(!saved){toast('Account not found on this device. Use Activate tab.','error');return;}
-  var u=JSON.parse(saved);S.user=u;S.user.plan=res.plan;S.user.key=key;localStorage.setItem(uk,JSON.stringify(S.user));
-  resetAtt();mkSess(email);loadState();launchApp();
+
+  fbSignIn(email,pw,function(user){
+    S.user=u;S.user.plan=res.plan;S.user.key=u.key;localStorage.setItem(uk,JSON.stringify(S.user));
+    onOk(user);
+  },onFail);
 }
+
 function doActivate(){
   var lk=isLocked();if(lk){toast('Locked.','error');return;}
   var email=document.getElementById('act-email').value.trim().toLowerCase();
   var key=document.getElementById('act-key').value.trim();
+  var pw=(document.getElementById('act-password')||{}).value||'';
+  var pw2=(document.getElementById('act-password2')||{}).value||'';
   if(!email||!key){toast('Fill all fields.','error');return;}
+  if(!pw){toast('Create a password.','error');return;}
+  if(pw!==pw2){toast('Passwords do not match.','error');return;}
+  if(!checkPwStrengthBooks(pw)){toast('Password must be 8+ chars with letters and numbers.','error');return;}
   var res=verifyKey(key,email);if(!res.valid){recFail();toast(res.msg,'error');return;}
-  var uk=userKey(email);var ex=localStorage.getItem(uk);if(ex){toast('Already activated. Use Login.','warn');return;}
-  localStorage.setItem('zb_pending',JSON.stringify({email:email,key:key,plan:res.plan}));
-  resetAtt();goStep(1);
+  fbCreateAcct(email,pw,function(user){
+    localStorage.setItem('zb_pending',JSON.stringify({email:email,key:key,plan:res.plan}));
+    resetAtt();goStep(1);
+    toast('✅ Account created! Complete your profile.','success');
+  },function(msg,code){
+    var m='Could not create account: '+msg;
+    if(code==='auth/weak-password')m='Password too weak.';
+    toast(m,'error');
+  });
 }
+
 function finishSetup(){
   var biz=document.getElementById('biz').value.trim();if(!biz){toast('Business name required.','error');return;}
   var p=JSON.parse(localStorage.getItem('zb_pending')||'{}');
   var u={email:p.email,key:p.key,plan:p.plan,firstName:document.getElementById('fn').value,lastName:document.getElementById('ln').value,bizName:biz,createdAt:new Date().toISOString()};
   localStorage.setItem(userKey(u.email),JSON.stringify(u));S.user=u;
-  var currMap={NGN:'\u20a6',USD:'$',GBP:'\u00a3',EUR:'\u20ac',GHS:'GHS',ZAR:'ZAR'};
+  var currMap={NGN:'₦',USD:'$',GBP:'£',EUR:'€',GHS:'GHS',ZAR:'ZAR'};
   var curr=document.getElementById('currency').value;
   S.settings.bizName=biz;S.settings.name=(u.firstName+' '+u.lastName).trim();
   S.settings.addr=document.getElementById('bizaddr').value;
@@ -1450,7 +1604,16 @@ function finishSetup(){
   S.settings.fyYear=new Date().getFullYear();
   saveState('settings');mkSess(u.email);loadState();toast('Welcome to Zentra Books!','success');launchApp();
 }
-function logout(){if(!confirm('Sign out?'))return;rmSess();document.getElementById('app').classList.remove('active');document.getElementById('auth-screen').style.display='flex';document.getElementById('login-email').value='';document.getElementById('login-key').value='';}
+
+function logout(){
+  if(!confirm('Sign out?'))return;
+  if(_fbSyncTimer){clearTimeout(_fbSyncTimer);pushToFB();}
+  fbSignOut();rmSess();
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('login-email').value='';
+  if(document.getElementById('login-password'))document.getElementById('login-password').value='';
+}
 
 // ── LAUNCH ──────────────────────────────────────────────────
 function launchApp(){
