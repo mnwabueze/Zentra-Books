@@ -686,18 +686,18 @@ input:focus,select:focus,textarea:focus,.form-input:focus{border-color:rgba(79,7
           </div>
           <div class="tab-pane" id="bank-accounts">
             <div class="filter-bar">
-              <button class="btn btn-indigo" onclick="showModal('bank-modal')">+ Add Bank Account</button>
+              <button class="btn btn-indigo" onclick="newBankAccount()">+ Add Bank Account</button>
             </div>
             <div id="bank-accounts-list"></div>
           </div>
           <div class="tab-pane" id="bank-transactions">
             <div class="filter-bar">
               <div class="search-box"><input placeholder="Search transactions..."/></div>
-              <button class="btn btn-indigo" onclick="showModal('banktxn-modal')">+ Add Transaction</button>
+              <button class="btn btn-indigo" onclick="newBankTxn()">+ Add Transaction</button>
               <button class="btn btn-ol" onclick="exportData('bankTransactions')">&#8595; Export</button>
             </div>
             <div class="tbl-wrap"><table>
-              <thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Reference</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Reconciled</th></tr></thead>
+              <thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Reference</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Reconciled</th><th>Actions</th></tr></thead>
               <tbody id="banktxn-tbody"></tbody>
             </table></div>
           </div>
@@ -715,7 +715,7 @@ input:focus,select:focus,textarea:focus,.form-input:focus{border-color:rgba(79,7
             <div class="filter-bar">
               <div class="search-box"><input placeholder="Search customers..."/></div>
               <select class="fsel"><option>All Status</option><option>Outstanding</option><option>Overdue</option><option>Paid</option></select>
-              <button class="btn btn-indigo" onclick="showModal('ar-modal')">+ Add Receivable</button>
+              <button class="btn btn-indigo" onclick="newAR()">+ Add Receivable</button>
               <button class="btn btn-ol" onclick="exportData('receivables')">&#8595; Export</button>
             </div>
             <div class="tbl-wrap"><table>
@@ -739,7 +739,7 @@ input:focus,select:focus,textarea:focus,.form-input:focus{border-color:rgba(79,7
           <div class="tab-pane active" id="ap-list">
             <div class="filter-bar">
               <div class="search-box"><input placeholder="Search suppliers..."/></div>
-              <button class="btn btn-indigo" onclick="showModal('ap-modal')">+ Add Payable</button>
+              <button class="btn btn-indigo" onclick="newAP()">+ Add Payable</button>
               <button class="btn btn-ol" onclick="exportData('payables')">&#8595; Export</button>
             </div>
             <div class="tbl-wrap"><table>
@@ -1157,6 +1157,48 @@ input:focus,select:focus,textarea:focus,.form-input:focus{border-color:rgba(79,7
 </div><!-- /app -->
 
 <!-- MODALS -->
+<!-- Journal Entry View Modal -->
+<div class="modal-overlay" id="je-view-modal" style="display:none" onclick="if(event.target.id==='je-view-modal')closeModal('je-view-modal')">
+  <div class="modal wide">
+    <div class="mhdr"><h2>Journal Entry Detail</h2><button class="mx" onclick="closeModal('je-view-modal')">x</button></div>
+    <div class="mbody">
+      <div id="je-view-content"></div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-primary" onclick="editJEFromView()">Edit Entry</button>
+        <button class="btn btn-ol" onclick="closeModal('je-view-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bank Transaction Modal -->
+<div class="modal-overlay" id="banktxn-modal" style="display:none" onclick="if(event.target.id==='banktxn-modal')closeModal('banktxn-modal')">
+  <div class="modal">
+    <div class="mhdr"><h2 id="banktxn-modal-title">Add Transaction</h2><button class="mx" onclick="closeModal('banktxn-modal')">x</button></div>
+    <div class="mbody">
+      <div class="form-row" style="margin-bottom:14px">
+        <div class="fg"><label>Date *</label><input type="date" id="bt-date"/></div>
+        <div class="fg"><label>Bank Account *</label>
+          <select id="bt-account" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--radius2);font-size:14px;color:var(--text);background:var(--surface)"></select>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:14px"><label>Description *</label><input id="bt-desc" placeholder="e.g. Customer payment, Supplier invoice..."/></div>
+      <div class="form-row" style="margin-bottom:14px">
+        <div class="fg"><label>Reference</label><input id="bt-ref" placeholder="Optional"/></div>
+        <div class="fg"><label>Type</label>
+          <select id="bt-type" onchange="toggleBTAmount()" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--radius2);font-size:14px;color:var(--text);background:var(--surface)">
+            <option value="debit">Debit (Money Out)</option>
+            <option value="credit">Credit (Money In)</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:14px"><label>Amount *</label><input type="number" id="bt-amount" placeholder="0.00"/></div>
+      <div class="fg" style="margin-bottom:14px"><label><input type="checkbox" id="bt-reconciled"/> Mark as Reconciled</label></div>
+    </div>
+    <div class="mftr"><button class="btn btn-ol" onclick="closeModal('banktxn-modal')">Cancel</button><button class="btn btn-indigo" onclick="saveBankTxn()">Save Transaction</button></div>
+  </div>
+</div>
+
 <!-- Journal Entry Modal -->
 <div class="modal-overlay" id="journal-modal" style="display:none" onclick="if(event.target.id==='journal-modal')closeModal('journal-modal')">
   <div class="modal wide">
@@ -1350,13 +1392,21 @@ function sessOk(){var t=sessionStorage.getItem('zb_tok'),e=parseInt(sessionStora
 function mkSess(email){sessionStorage.setItem('zb_tok',Math.random().toString(36)+Date.now().toString(36));sessionStorage.setItem('zb_exp',String(Date.now()+8*60*60*1000));sessionStorage.setItem('zb_em',email);}
 function rmSess(){['zb_tok','zb_exp','zb_em'].forEach(function(k){sessionStorage.removeItem(k);});}
 function userKey(email){return'zb_user_'+email.replace(/[^a-z0-9]/g,'_');}
-function skv(suffix){var em=S.user&&S.user.email?S.user.email.toLowerCase().replace(/[^a-z0-9]/g,'_'):'default';return'zb_'+em+'_'+suffix;}
+function skv(suffix){var em=S.user&&S.user.email?S.user.email.toLowerCase().replace(/[^a-z0-9]/g,'_'):'default';var prefix=ZB_VARIANT==='standalone'?'zbs_':'zb_';return prefix+em+'_'+suffix;}
 
 // ── STATE ───────────────────────────────────────────────────
 // ════════════════════════════════════════════════════════
 // ZENTRA BOOKS — FIREBASE LAYER
 // localStorage = instant (primary), Firestore = sync (multi-device)
+//
+// VARIANT FLAG — set this to 'shared' for the Zentra Suites
+// build (deployed alongside Stock, data auto-syncs between them)
+// or 'standalone' for the pure accounting product (no Stock link,
+// completely isolated Firestore path so the two can never collide
+// even if the same email is used on both).
 // ════════════════════════════════════════════════════════
+var ZB_VARIANT = 'standalone'; // 'shared' | 'standalone'
+
 var FB_CFG = {
   apiKey:"AIzaSyDCzPfpWGk9Ksu32OvRL0IMK1nUPqtjJuM",
   authDomain:"zentra-systems.firebaseapp.com",
@@ -1384,7 +1434,10 @@ var _fbSyncTimer=null;
   });
 })();
 
-function fbUserPath(email){ return 'userData/'+email.replace(/[^a-zA-Z0-9]/g,'-')+'/books'; }
+function fbUserPath(email){
+  var product = ZB_VARIANT === 'standalone' ? 'books-standalone' : 'books';
+  return 'userData/'+email.replace(/[^a-zA-Z0-9]/g,'-')+'/'+product;
+}
 
 function refreshRevoked(){
   if(!_fbDb)return;
@@ -1925,16 +1978,23 @@ function genJEId(){var id='JE-'+String(S.nextJENum).padStart(5,'0');S.nextJENum+
 function genJERef(){return 'REF-'+String(S.nextJENum).padStart(5,'0');}
 
 function openJournalModal(id){
-  document.getElementById('je-modal-title').textContent=id?'Edit Journal Entry':'+ New Journal Entry';
-  document.getElementById('je-date').value=today();
-  document.getElementById('je-ref').value=genJERef();
-  document.getElementById('je-desc').value='';
-  document.getElementById('je-type').value='manual';
+  var je = id ? S.journalEntries.find(function(j){ return j.id===id; }) : null;
+  document.getElementById('je-modal-title').textContent=je?'Edit Journal Entry':'+ New Journal Entry';
+  document.getElementById('je-date').value=je?je.date:today();
+  document.getElementById('je-ref').value=je?(je.ref||je.id):genJERef();
+  document.getElementById('je-desc').value=je?je.description:'';
+  document.getElementById('je-type').value=je?je.type:'manual';
   document.getElementById('je-lines').innerHTML='';
   document.getElementById('je-modal')._editId=id||null;
-  addJELine();addJELine(); // start with 2 lines
+  if(je && je.lines && je.lines.length){
+    je.lines.forEach(function(line){ addJELine(line); });
+  } else {
+    addJELine();addJELine(); // start with 2 blank lines
+  }
   calcJETotals();showModal('journal-modal');
 }
+
+function editJE(id){ openJournalModal(id); }
 
 function addJELine(line){
   line=line||{accountCode:'',desc:'',debit:0,credit:0};
@@ -1990,10 +2050,34 @@ function saveJE(draft){
   if(!draft&&Math.abs(totalDr-totalCr)>0.01){toast('Entry is not balanced. Total Debits must equal Total Credits.','error');return;}
   var editId=document.getElementById('je-modal')._editId;
   var je={id:editId||genJEId(),date:date,ref:document.getElementById('je-ref').value,description:desc,type:document.getElementById('je-type').value,posted:!draft,lines:lines,createdAt:new Date().toISOString()};
-  if(editId){var idx=S.journalEntries.findIndex(function(j){return j.id===editId;});if(idx>=0)S.journalEntries[idx]=je;}
-  else{S.journalEntries.push(je);if(!draft)updateCOABalance(je);}
+
+  if(editId){
+    var idx=S.journalEntries.findIndex(function(j){return j.id===editId;});
+    if(idx>=0){
+      var old=S.journalEntries[idx];
+      // Reverse old entry's COA impact if it was posted
+      if(old.posted) reverseCOABalance(old);
+      je.createdAt = old.createdAt; // preserve original creation date
+      S.journalEntries[idx]=je;
+      // Apply new entry's COA impact if posting
+      if(je.posted) updateCOABalance(je);
+    }
+  } else {
+    S.journalEntries.push(je);
+    if(!draft)updateCOABalance(je);
+  }
   saveState('journalEntries');renderJE();renderDashboard();closeModal('journal-modal');
   toast((draft?'Draft':'Entry')+' '+je.id+' saved! \u2705','success');
+}
+
+function reverseCOABalance(je){
+  je.lines.forEach(function(line){
+    var acc=S.chartOfAccounts.find(function(a){return a.code===line.accountCode;});
+    if(!acc)return;
+    acc.drBalance=Math.max(0,(acc.drBalance||0)-line.debit);
+    acc.crBalance=Math.max(0,(acc.crBalance||0)-line.credit);
+  });
+  saveState('chartOfAccounts');
 }
 
 function updateCOABalance(je){
@@ -2031,15 +2115,47 @@ function renderJE(filter,typeF){
       '<td><div style="display:flex;gap:4px">'+
         (je.posted?'':'<button class="btn btn-ol btn-sm" onclick="postJE(\''+je.id+'\')">Post</button>')+
         '<button class="btn btn-ol btn-sm" onclick="viewJE(\''+je.id+'\')">View</button>'+
-        (!je.sourceRef?'<button class="btn btn-danger btn-sm" onclick="deleteJE(\''+je.id+'\')">Del</button>':'')+
+        '<button class="btn btn-ol btn-sm" onclick="editJE(\''+je.id+'\')">Edit</button>'+
+        '<button class="btn btn-danger btn-sm" onclick="deleteJE(\''+je.id+'\')">Del</button>'+
       '</div></td>'+
       '</tr>';
   }).join('');
 }
 function filterJE(v){renderJE(v,null);}
 function filterJEType(v){renderJE(null,v||null);}
-function viewJE(id){var je=S.journalEntries.find(function(j){return j.id===id;});if(!je)return;var C=S.settings.currSym||'\u20a6';var msg=je.ref+' — '+je.description+'\n'+je.date+'\n\n'+je.lines.map(function(l){return'['+l.accountCode+'] '+l.accountName+'\tDr: '+C+(l.debit||0).toFixed(2)+'\tCr: '+C+(l.credit||0).toFixed(2);}).join('\n');alert(msg);}
-function deleteJE(id){if(!confirm('Delete this journal entry?'))return;S.journalEntries=S.journalEntries.filter(function(j){return j.id!==id;});saveState('journalEntries');renderJE();renderDashboard();toast('Entry deleted.','warn');}
+function viewJE(id){
+  var je=S.journalEntries.find(function(j){return j.id===id;});
+  if(!je)return;
+  var C=S.settings.currSym||'\u20a6';
+  var totalDr=je.lines.reduce(function(a,l){return a+l.debit;},0);
+  var totalCr=je.lines.reduce(function(a,l){return a+l.credit;},0);
+  var rows=je.lines.map(function(l){
+    return '<tr><td>['+esc(l.accountCode)+'] '+esc(l.accountName)+'</td><td style="font-size:11px;color:var(--text3)">'+esc(l.desc||'')+'</td><td class="dr">'+(l.debit?C+l.debit.toFixed(2):'')+'</td><td class="cr">'+(l.credit?C+l.credit.toFixed(2):'')+'</td></tr>';
+  }).join('');
+  var html =
+    '<div style="margin-bottom:16px"><strong>'+esc(je.ref||je.id)+'</strong> — '+esc(je.description)+'<br>'+
+    '<span style="font-size:12px;color:var(--text3)">'+je.date+' · '+(je.posted?'Posted':'Draft')+'</span></div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:2px solid var(--border)"><th style="text-align:left;padding:6px">Account</th><th style="text-align:left;padding:6px">Description</th><th style="text-align:right;padding:6px">Debit</th><th style="text-align:right;padding:6px">Credit</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody>'+
+    '<tfoot><tr style="border-top:2px solid var(--border);font-weight:700"><td colspan="2" style="padding:6px">Total</td><td class="dr" style="padding:6px">'+C+totalDr.toFixed(2)+'</td><td class="cr" style="padding:6px">'+C+totalCr.toFixed(2)+'</td></tr></tfoot></table>';
+  document.getElementById('je-view-content').innerHTML = html;
+  document.getElementById('je-view-modal')._currentId = id;
+  showModal('je-view-modal');
+}
+
+function editJEFromView(){
+  var id = document.getElementById('je-view-modal')._currentId;
+  closeModal('je-view-modal');
+  if(id) editJE(id);
+}
+
+function deleteJE(id){
+  if(!confirm('Delete this journal entry? Account balances will be reversed.'))return;
+  var je=S.journalEntries.find(function(j){return j.id===id;});
+  if(je && je.posted) reverseCOABalance(je);
+  S.journalEntries=S.journalEntries.filter(function(j){return j.id!==id;});
+  saveState('journalEntries');saveState('chartOfAccounts');renderJE();renderDashboard();toast('Entry deleted.','warn');
+}
 function postJE(id){var idx=S.journalEntries.findIndex(function(j){return j.id===id;});if(idx<0)return;S.journalEntries[idx].posted=true;updateCOABalance(S.journalEntries[idx]);saveState('journalEntries');renderJE();toast('Entry posted to ledger!','success');}
 
 // ── GENERAL LEDGER ───────────────────────────────────────────
@@ -2252,18 +2368,220 @@ function renderAPaging(){
 // ── AR / AP CRUD ─────────────────────────────────────────────
 function genARId(){return'AR-'+String(S.receivables.length+1001).padStart(4,'0');}
 function genAPId(){return'AP-'+String(S.payables.length+1001).padStart(4,'0');}
-function saveAR(){var cust=document.getElementById('ar-customer').value.trim();var amt=parseFloat(document.getElementById('ar-amount').value)||0;if(!cust||!amt){toast('Customer and amount required.','error');return;}var paid=parseFloat(document.getElementById('ar-paid').value)||0;var bal=amt-paid;S.receivables.push({id:genARId(),customer:cust,ref:document.getElementById('ar-ref').value,date:document.getElementById('ar-date').value||today(),dueDate:document.getElementById('ar-due').value,amount:amt,amtPaid:paid,balance:bal,desc:document.getElementById('ar-desc').value,status:bal<=0?'paid':paid>0?'partial':'outstanding',createdAt:today()});saveState('receivables');renderAR();closeModal('ar-modal');toast('Receivable added!','success');}
-function renderAR(){var tb=document.getElementById('ar-tbody');if(!tb)return;var C=S.settings.currSym||'\u20a6';var td=today();if(!S.receivables.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">No receivables yet.</td></tr>';return;}tb.innerHTML=S.receivables.slice().reverse().map(function(r){var bal=(r.amount||0)-(r.amtPaid||0);var days=r.dueDate?Math.floor((new Date(td)-new Date(r.dueDate))/86400000):0;var status=bal<=0?'<span class="badge b-green">Paid</span>':days>0?'<span class="badge b-red">'+days+'d Overdue</span>':'<span class="badge b-amber">Outstanding</span>';return'<tr><td style="font-family:var(--mono);font-size:11px;color:var(--brand)">'+esc(r.ref||r.id)+'</td><td style="font-weight:700">'+esc(r.customer)+'</td><td>'+esc(r.date)+'</td><td>'+esc(r.dueDate||'')+'</td><td style="font-weight:700">'+C+r.amount.toFixed(2)+'</td><td class="cr">'+C+(r.amtPaid||0).toFixed(2)+'</td><td class="dr">'+C+bal.toFixed(2)+'</td><td style="color:'+(days>0?'var(--danger)':'var(--text3)')+'">'+esc(days>0?days+'d overdue':'—')+'</td><td>'+status+'</td><td><button class="btn btn-danger btn-sm" onclick="deleteAR(\''+r.id+'\')">Del</button></td></tr>';}).join('');}
+function newAR(){
+  document.getElementById('ar-modal')._editId='';
+  document.getElementById('ar-modal-title').textContent='Add Receivable';
+  document.getElementById('ar-customer').value='';
+  document.getElementById('ar-ref').value='';
+  document.getElementById('ar-date').value=today();
+  document.getElementById('ar-due').value='';
+  document.getElementById('ar-amount').value='';
+  document.getElementById('ar-paid').value='';
+  document.getElementById('ar-desc').value='';
+  showModal('ar-modal');
+}
+
+function editAR(id){
+  var r=S.receivables.find(function(x){return x.id===id;});
+  if(!r)return;
+  document.getElementById('ar-modal')._editId=id;
+  document.getElementById('ar-modal-title').textContent='Edit Receivable';
+  document.getElementById('ar-customer').value=r.customer;
+  document.getElementById('ar-ref').value=r.ref||'';
+  document.getElementById('ar-date').value=r.date;
+  document.getElementById('ar-due').value=r.dueDate||'';
+  document.getElementById('ar-amount').value=r.amount;
+  document.getElementById('ar-paid').value=r.amtPaid||0;
+  document.getElementById('ar-desc').value=r.desc||'';
+  showModal('ar-modal');
+}
+
+function recordARPayment(id){
+  var amt=parseFloat(prompt('Enter payment amount received:')||'0');
+  if(!amt)return;
+  var r=S.receivables.find(function(x){return x.id===id;});
+  if(!r)return;
+  r.amtPaid=(r.amtPaid||0)+amt;
+  var bal=r.amount-r.amtPaid;
+  r.status=bal<=0?'paid':r.amtPaid>0?'partial':'outstanding';
+  saveState('receivables');renderAR();
+  toast('Payment of '+(S.settings.currSym||'\u20a6')+amt.toFixed(2)+' recorded.','success');
+}
+
+function saveAR(){
+  var cust=document.getElementById('ar-customer').value.trim();
+  var amt=parseFloat(document.getElementById('ar-amount').value)||0;
+  if(!cust||!amt){toast('Customer and amount required.','error');return;}
+  var paid=parseFloat(document.getElementById('ar-paid').value)||0;
+  var bal=amt-paid;
+  var editId=document.getElementById('ar-modal')._editId;
+  var entry={id:editId||genARId(),customer:cust,ref:document.getElementById('ar-ref').value,date:document.getElementById('ar-date').value||today(),dueDate:document.getElementById('ar-due').value,amount:amt,amtPaid:paid,balance:bal,desc:document.getElementById('ar-desc').value,status:bal<=0?'paid':paid>0?'partial':'outstanding',createdAt:today()};
+  if(editId){
+    var idx=S.receivables.findIndex(function(x){return x.id===editId;});
+    if(idx>=0){ entry.createdAt=S.receivables[idx].createdAt; S.receivables[idx]=entry; }
+  } else { S.receivables.push(entry); }
+  saveState('receivables');renderAR();closeModal('ar-modal');
+  toast(editId?'Receivable updated!':'Receivable added!','success');
+}
+
+function renderAR(){var tb=document.getElementById('ar-tbody');if(!tb)return;var C=S.settings.currSym||'\u20a6';var td=today();if(!S.receivables.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">No receivables yet.</td></tr>';return;}tb.innerHTML=S.receivables.slice().reverse().map(function(r){var bal=(r.amount||0)-(r.amtPaid||0);var days=r.dueDate?Math.floor((new Date(td)-new Date(r.dueDate))/86400000):0;var status=bal<=0?'<span class="badge b-green">Paid</span>':days>0?'<span class="badge b-red">'+days+'d Overdue</span>':'<span class="badge b-amber">Outstanding</span>';return'<tr><td style="font-family:var(--mono);font-size:11px;color:var(--brand)">'+esc(r.ref||r.id)+'</td><td style="font-weight:700">'+esc(r.customer)+'</td><td>'+esc(r.date)+'</td><td>'+esc(r.dueDate||'')+'</td><td style="font-weight:700">'+C+r.amount.toFixed(2)+'</td><td class="cr">'+C+(r.amtPaid||0).toFixed(2)+'</td><td class="dr">'+C+bal.toFixed(2)+'</td><td style="color:'+(days>0?'var(--danger)':'var(--text3)')+'">'+esc(days>0?days+'d overdue':'—')+'</td><td>'+status+'</td><td style="display:flex;gap:4px">'+(bal>0?'<button class="btn btn-ol btn-sm" onclick="recordARPayment(\''+r.id+'\')">Pay</button>':'')+'<button class="btn btn-ol btn-sm" onclick="editAR(\''+r.id+'\')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteAR(\''+r.id+'\')">Del</button></td></tr>';}).join('');}
 function deleteAR(id){if(!confirm('Delete?'))return;S.receivables=S.receivables.filter(function(r){return r.id!==id;});saveState('receivables');renderAR();}
-function saveAP(){var sup=document.getElementById('ap-supplier').value.trim();var amt=parseFloat(document.getElementById('ap-amount').value)||0;if(!sup||!amt){toast('Supplier and amount required.','error');return;}var paid=parseFloat(document.getElementById('ap-paid').value)||0;var bal=amt-paid;S.payables.push({id:genAPId(),supplier:sup,ref:document.getElementById('ap-ref').value,date:document.getElementById('ap-date').value||today(),dueDate:document.getElementById('ap-due').value,amount:amt,amtPaid:paid,balance:bal,accountId:document.getElementById('ap-account').value,desc:document.getElementById('ap-desc').value,status:bal<=0?'paid':paid>0?'partial':'unpaid',createdAt:today()});saveState('payables');renderAP();closeModal('ap-modal');toast('Payable added!','success');}
-function renderAP(){var tb=document.getElementById('ap-tbody');if(!tb)return;var C=S.settings.currSym||'\u20a6';var td=today();if(!S.payables.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">No payables yet.</td></tr>';return;}tb.innerHTML=S.payables.slice().reverse().map(function(p){var bal=(p.amount||0)-(p.amtPaid||0);var days=p.dueDate?Math.floor((new Date(td)-new Date(p.dueDate))/86400000):0;var status=bal<=0?'<span class="badge b-green">Paid</span>':days>0?'<span class="badge b-red">'+days+'d Overdue</span>':'<span class="badge b-amber">Unpaid</span>';return'<tr><td style="font-family:var(--mono);font-size:11px;color:var(--brand)">'+esc(p.ref||p.id)+'</td><td style="font-weight:700">'+esc(p.supplier)+'</td><td>'+esc(p.date)+'</td><td>'+esc(p.dueDate||'')+'</td><td style="font-weight:700">'+C+p.amount.toFixed(2)+'</td><td class="cr">'+C+(p.amtPaid||0).toFixed(2)+'</td><td class="dr">'+C+bal.toFixed(2)+'</td><td style="color:'+(days>0?'var(--danger)':'var(--text3)')+'">'+esc(days>0?days+'d overdue':'—')+'</td><td>'+status+'</td><td><button class="btn btn-danger btn-sm" onclick="deleteAP(\''+p.id+'\')">Del</button></td></tr>';}).join('');}
+function newAP(){
+  document.getElementById('ap-modal')._editId='';
+  document.getElementById('ap-modal-title').textContent='Add Payable';
+  document.getElementById('ap-supplier').value='';
+  document.getElementById('ap-ref').value='';
+  document.getElementById('ap-date').value=today();
+  document.getElementById('ap-due').value='';
+  document.getElementById('ap-amount').value='';
+  document.getElementById('ap-paid').value='';
+  document.getElementById('ap-desc').value='';
+  showModal('ap-modal');
+}
+
+function editAP(id){
+  var p=S.payables.find(function(x){return x.id===id;});
+  if(!p)return;
+  document.getElementById('ap-modal')._editId=id;
+  document.getElementById('ap-modal-title').textContent='Edit Payable';
+  document.getElementById('ap-supplier').value=p.supplier;
+  document.getElementById('ap-ref').value=p.ref||'';
+  document.getElementById('ap-date').value=p.date;
+  document.getElementById('ap-due').value=p.dueDate||'';
+  document.getElementById('ap-amount').value=p.amount;
+  document.getElementById('ap-paid').value=p.amtPaid||0;
+  if(document.getElementById('ap-account')) document.getElementById('ap-account').value=p.accountId||'';
+  document.getElementById('ap-desc').value=p.desc||'';
+  showModal('ap-modal');
+}
+
+function recordAPPayment(id){
+  var amt=parseFloat(prompt('Enter payment amount made:')||'0');
+  if(!amt)return;
+  var p=S.payables.find(function(x){return x.id===id;});
+  if(!p)return;
+  p.amtPaid=(p.amtPaid||0)+amt;
+  var bal=p.amount-p.amtPaid;
+  p.status=bal<=0?'paid':p.amtPaid>0?'partial':'unpaid';
+  saveState('payables');renderAP();
+  toast('Payment of '+(S.settings.currSym||'\u20a6')+amt.toFixed(2)+' recorded.','success');
+}
+
+function saveAP(){
+  var sup=document.getElementById('ap-supplier').value.trim();
+  var amt=parseFloat(document.getElementById('ap-amount').value)||0;
+  if(!sup||!amt){toast('Supplier and amount required.','error');return;}
+  var paid=parseFloat(document.getElementById('ap-paid').value)||0;
+  var bal=amt-paid;
+  var editId=document.getElementById('ap-modal')._editId;
+  var entry={id:editId||genAPId(),supplier:sup,ref:document.getElementById('ap-ref').value,date:document.getElementById('ap-date').value||today(),dueDate:document.getElementById('ap-due').value,amount:amt,amtPaid:paid,balance:bal,accountId:document.getElementById('ap-account').value,desc:document.getElementById('ap-desc').value,status:bal<=0?'paid':paid>0?'partial':'unpaid',createdAt:today()};
+  if(editId){
+    var idx=S.payables.findIndex(function(x){return x.id===editId;});
+    if(idx>=0){ entry.createdAt=S.payables[idx].createdAt; S.payables[idx]=entry; }
+  } else { S.payables.push(entry); }
+  saveState('payables');renderAP();closeModal('ap-modal');
+  toast(editId?'Payable updated!':'Payable added!','success');
+}
+
+function renderAP(){var tb=document.getElementById('ap-tbody');if(!tb)return;var C=S.settings.currSym||'\u20a6';var td=today();if(!S.payables.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">No payables yet.</td></tr>';return;}tb.innerHTML=S.payables.slice().reverse().map(function(p){var bal=(p.amount||0)-(p.amtPaid||0);var days=p.dueDate?Math.floor((new Date(td)-new Date(p.dueDate))/86400000):0;var status=bal<=0?'<span class="badge b-green">Paid</span>':days>0?'<span class="badge b-red">'+days+'d Overdue</span>':'<span class="badge b-amber">Unpaid</span>';return'<tr><td style="font-family:var(--mono);font-size:11px;color:var(--brand)">'+esc(p.ref||p.id)+'</td><td style="font-weight:700">'+esc(p.supplier)+'</td><td>'+esc(p.date)+'</td><td>'+esc(p.dueDate||'')+'</td><td style="font-weight:700">'+C+p.amount.toFixed(2)+'</td><td class="cr">'+C+(p.amtPaid||0).toFixed(2)+'</td><td class="dr">'+C+bal.toFixed(2)+'</td><td style="color:'+(days>0?'var(--danger)':'var(--text3)')+'">'+esc(days>0?days+'d overdue':'—')+'</td><td>'+status+'</td><td style="display:flex;gap:4px">'+(bal>0?'<button class="btn btn-ol btn-sm" onclick="recordAPPayment(\''+p.id+'\')">Pay</button>':'')+'<button class="btn btn-ol btn-sm" onclick="editAP(\''+p.id+'\')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteAP(\''+p.id+'\')">Del</button></td></tr>';}).join('');}
 function deleteAP(id){if(!confirm('Delete?'))return;S.payables=S.payables.filter(function(p){return p.id!==id;});saveState('payables');renderAP();}
 
 // ── BANK RECONCILIATION ──────────────────────────────────────
-function saveBankAccount(){var bank=document.getElementById('bk-bank').value.trim();var name=document.getElementById('bk-name').value.trim();if(!bank||!name){toast('Bank name and account name required.','error');return;}var acc={id:'BNK-'+Date.now(),bank:bank,accountName:name,accountNum:document.getElementById('bk-num').value,type:document.getElementById('bk-type').value,balance:parseFloat(document.getElementById('bk-balance').value)||0,coaCode:document.getElementById('bk-coa').value,createdAt:today()};S.bankAccounts.push(acc);saveState('bankAccounts');renderBankAccounts();closeModal('bank-modal');populateCOADropdowns();toast('Bank account added!','success');}
-function renderBankAccounts(){var el=document.getElementById('bank-accounts-list');if(!el)return;var C=S.settings.currSym||'\u20a6';if(!S.bankAccounts.length){el.innerHTML='<div class="alert al-info"><span>ℹ️</span><span>No bank accounts yet. Add your first bank account above.</span></div>';return;}el.innerHTML='<div style="display:grid;gap:12px">'+S.bankAccounts.map(function(b){return'<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:var(--shadow)"><div><div style="font-weight:700;font-size:15px">'+esc(b.accountName)+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(b.bank)+' &middot; '+esc(b.type)+' &middot; '+esc(b.accountNum||'')+'</div></div><div style="font-size:22px;font-weight:800;color:var(--brand)">'+C+(b.balance||0).toFixed(2)+'</div><div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" onclick="deleteBankAccount(\''+b.id+'\')">Del</button></div></div>';}).join('')+'</div>';}
+function newBankAccount(){
+  document.getElementById('bank-modal')._editId='';
+  document.getElementById('bk-bank').value='';
+  document.getElementById('bk-name').value='';
+  document.getElementById('bk-num').value='';
+  if(document.getElementById('bk-type')) document.getElementById('bk-type').value='current';
+  document.getElementById('bk-balance').value='';
+  if(document.getElementById('bk-coa')) document.getElementById('bk-coa').value='';
+  showModal('bank-modal');
+}
+function editBankAccount(id){
+  var b=S.bankAccounts.find(function(x){return x.id===id;});
+  if(!b)return;
+  document.getElementById('bank-modal')._editId=id;
+  document.getElementById('bk-bank').value=b.bank;
+  document.getElementById('bk-name').value=b.accountName;
+  document.getElementById('bk-num').value=b.accountNum||'';
+  if(document.getElementById('bk-type')) document.getElementById('bk-type').value=b.type;
+  document.getElementById('bk-balance').value=b.balance||0;
+  if(document.getElementById('bk-coa')) document.getElementById('bk-coa').value=b.coaCode||'';
+  showModal('bank-modal');
+}
+function saveBankAccount(){var bank=document.getElementById('bk-bank').value.trim();var name=document.getElementById('bk-name').value.trim();if(!bank||!name){toast('Bank name and account name required.','error');return;}var editId=document.getElementById('bank-modal')._editId;var acc={id:editId||('BNK-'+Date.now()),bank:bank,accountName:name,accountNum:document.getElementById('bk-num').value,type:document.getElementById('bk-type').value,balance:parseFloat(document.getElementById('bk-balance').value)||0,coaCode:document.getElementById('bk-coa').value,createdAt:today()};if(editId){var idx=S.bankAccounts.findIndex(function(x){return x.id===editId;});if(idx>=0){acc.createdAt=S.bankAccounts[idx].createdAt;S.bankAccounts[idx]=acc;}}else{S.bankAccounts.push(acc);}saveState('bankAccounts');renderBankAccounts();closeModal('bank-modal');populateCOADropdowns();toast(editId?'Bank account updated!':'Bank account added!','success');}
+function renderBankAccounts(){var el=document.getElementById('bank-accounts-list');if(!el)return;var C=S.settings.currSym||'\u20a6';if(!S.bankAccounts.length){el.innerHTML='<div class="alert al-info"><span>ℹ️</span><span>No bank accounts yet. Add your first bank account above.</span></div>';return;}el.innerHTML='<div style="display:grid;gap:12px">'+S.bankAccounts.map(function(b){return'<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:var(--shadow)"><div><div style="font-weight:700;font-size:15px">'+esc(b.accountName)+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(b.bank)+' &middot; '+esc(b.type)+' &middot; '+esc(b.accountNum||'')+'</div></div><div style="font-size:22px;font-weight:800;color:var(--brand)">'+C+(b.balance||0).toFixed(2)+'</div><div style="display:flex;gap:8px"><button class="btn btn-ol btn-sm" onclick="editBankAccount(\''+b.id+'\')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteBankAccount(\''+b.id+'\')">Del</button></div></div>';}).join('')+'</div>';}
 function deleteBankAccount(id){if(!confirm('Delete?'))return;S.bankAccounts=S.bankAccounts.filter(function(b){return b.id!==id;});saveState('bankAccounts');renderBankAccounts();}
-function renderBankTransactions(){var tb=document.getElementById('banktxn-tbody');if(!tb)return;var C=S.settings.currSym||'\u20a6';if(!S.bankTransactions.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">No bank transactions yet.</td></tr>';return;}var bal=0;tb.innerHTML=S.bankTransactions.map(function(t){bal+=t.debit-t.credit;return'<tr><td>'+esc(t.date)+'</td><td>'+esc(t.accountName||'')+'</td><td>'+esc(t.desc)+'</td><td style="font-family:var(--mono);font-size:11px">'+esc(t.ref||'')+'</td><td class="dr">'+(t.debit?C+t.debit.toFixed(2):'')+'</td><td class="cr">'+(t.credit?C+t.credit.toFixed(2):'')+'</td><td style="font-weight:700;color:'+(bal>=0?'var(--success)':'var(--danger)')+'">'+C+Math.abs(bal).toFixed(2)+'</td><td>'+(t.reconciled?'<span class="badge b-green">\u2713 Matched</span>':'<span class="badge b-slate">Pending</span>')+'</td></tr>';}).join('');}
+function renderBankTransactions(){var tb=document.getElementById('banktxn-tbody');if(!tb)return;var C=S.settings.currSym||'\u20a6';if(!S.bankTransactions.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text3)">No bank transactions yet.</td></tr>';return;}var bal=0;tb.innerHTML=S.bankTransactions.map(function(t){bal+=t.debit-t.credit;return'<tr><td>'+esc(t.date)+'</td><td>'+esc(t.accountName||'')+'</td><td>'+esc(t.desc)+'</td><td style="font-family:var(--mono);font-size:11px">'+esc(t.ref||'')+'</td><td class="dr">'+(t.debit?C+t.debit.toFixed(2):'')+'</td><td class="cr">'+(t.credit?C+t.credit.toFixed(2):'')+'</td><td style="font-weight:700;color:'+(bal>=0?'var(--success)':'var(--danger)')+'">'+C+Math.abs(bal).toFixed(2)+'</td><td>'+(t.reconciled?'<span class="badge b-green">\u2713 Matched</span>':'<span class="badge b-slate">Pending</span>')+'</td><td style="display:flex;gap:4px">'+(t.id?'<button class="btn btn-ol btn-sm" onclick="editBankTxn(\''+t.id+'\')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteBankTxn(\''+t.id+'\')">Del</button>':'')+'</td></tr>';}).join('');}
+
+function toggleBTAmount(){} // placeholder for future debit/credit field swap UX
+
+function populateBTAccountDropdown(){
+  var sel=document.getElementById('bt-account');
+  if(!sel)return;
+  sel.innerHTML=S.bankAccounts.map(function(b){return '<option value="'+b.id+'">'+esc(b.accountName)+' ('+esc(b.bank)+')</option>';}).join('');
+}
+
+function newBankTxn(){
+  populateBTAccountDropdown();
+  document.getElementById('banktxn-modal')._editId='';
+  document.getElementById('banktxn-modal-title').textContent='Add Transaction';
+  document.getElementById('bt-date').value=today();
+  document.getElementById('bt-desc').value='';
+  document.getElementById('bt-ref').value='';
+  document.getElementById('bt-type').value='debit';
+  document.getElementById('bt-amount').value='';
+  document.getElementById('bt-reconciled').checked=false;
+  showModal('banktxn-modal');
+}
+
+function editBankTxn(id){
+  var t=S.bankTransactions.find(function(x){return x.id===id;});
+  if(!t)return;
+  populateBTAccountDropdown();
+  document.getElementById('banktxn-modal')._editId=id;
+  document.getElementById('banktxn-modal-title').textContent='Edit Transaction';
+  document.getElementById('bt-date').value=t.date;
+  document.getElementById('bt-account').value=t.accountId||'';
+  document.getElementById('bt-desc').value=t.desc;
+  document.getElementById('bt-ref').value=t.ref||'';
+  document.getElementById('bt-type').value=t.debit?'debit':'credit';
+  document.getElementById('bt-amount').value=t.debit||t.credit||0;
+  document.getElementById('bt-reconciled').checked=!!t.reconciled;
+  showModal('banktxn-modal');
+}
+
+function deleteBankTxn(id){
+  if(!confirm('Delete this bank transaction?'))return;
+  S.bankTransactions=S.bankTransactions.filter(function(x){return x.id!==id;});
+  saveState('bankTransactions');renderBankTransactions();
+  toast('Transaction deleted.','warn');
+}
+
+function saveBankTxn(){
+  var date=document.getElementById('bt-date').value;
+  var accId=document.getElementById('bt-account').value;
+  var desc=document.getElementById('bt-desc').value.trim();
+  var amount=parseFloat(document.getElementById('bt-amount').value)||0;
+  if(!date||!accId||!desc||!amount){toast('Date, account, description and amount are required.','error');return;}
+  var acc=S.bankAccounts.find(function(b){return b.id===accId;});
+  var type=document.getElementById('bt-type').value;
+  var editId=document.getElementById('banktxn-modal')._editId;
+  var entry={
+    id:editId||('BTX-'+Date.now()),
+    date:date, accountId:accId, accountName:acc?acc.accountName:'',
+    desc:desc, ref:document.getElementById('bt-ref').value,
+    debit: type==='debit'?amount:0,
+    credit: type==='credit'?amount:0,
+    reconciled: document.getElementById('bt-reconciled').checked
+  };
+  if(editId){
+    var idx=S.bankTransactions.findIndex(function(x){return x.id===editId;});
+    if(idx>=0) S.bankTransactions[idx]=entry;
+  } else { S.bankTransactions.push(entry); }
+  saveState('bankTransactions');renderBankTransactions();closeModal('banktxn-modal');
+  toast(editId?'Transaction updated!':'Transaction added!','success');
+}
 function runReconciliation(){var statBal=parseFloat(document.getElementById('recon-balance').value)||0;var accCode=document.getElementById('recon-account').value;var accName=getAccName(accCode);var ledgerBal=0;S.journalEntries.filter(function(je){return je.posted;}).forEach(function(je){je.lines.forEach(function(l){if(l.accountCode===accCode)ledgerBal+=l.debit-l.credit;});});var C=S.settings.currSym||'\u20a6';var diff=statBal-ledgerBal;var matched=Math.abs(diff)<0.01;document.getElementById('recon-output').innerHTML='<div class="card"><div class="card-title">Reconciliation Result — '+esc(accName)+'</div>'+
   '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">'+
   '<div style="background:var(--surface2);border-radius:var(--radius2);padding:16px;text-align:center"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Bank Statement Balance</div><div style="font-size:20px;font-weight:800;color:var(--text)">'+C+statBal.toFixed(2)+'</div></div>'+
@@ -2764,7 +3082,7 @@ function renderPayrollHistory(){
   var runs = getPayrollRuns().slice().reverse();
   var C = S.settings && S.settings.currSym ? S.settings.currSym : '₦';
   if(!runs.length){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">No payroll runs yet.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--text3)">No payroll runs yet.</td></tr>';
     return;
   }
   tbody.innerHTML = runs.map(function(r){
@@ -2776,8 +3094,28 @@ function renderPayrollHistory(){
       '<td style="font-family:var(--mono);color:var(--text3)">'+C+fmt2(r.totals.tax+r.totals.penEE+r.totals.nhf)+'</td>'+
       '<td style="font-family:var(--mono);font-weight:700;color:#10B981">'+C+fmt2(r.totals.net)+'</td>'+
       '<td><span style="font-size:11px;color:var(--text3)">JE: '+r.jeId+'</span></td>'+
+      '<td><button class="btn btn-danger btn-sm" onclick="deletePayrollRun(\''+r.id+'\')">Del</button></td>'+
     '</tr>';
   }).join('');
+}
+
+function deletePayrollRun(id){
+  var run = getPayrollRuns().find(function(r){ return r.id===id; });
+  if(!run) return;
+  if(!confirm('Delete this payroll run? The linked journal entry ('+run.jeId+') will also be reversed and removed.')) return;
+  // Reverse and remove the linked journal entry
+  var je = S.journalEntries.find(function(j){ return j.id===run.jeId; });
+  if(je){
+    if(je.posted) reverseCOABalance(je);
+    S.journalEntries = S.journalEntries.filter(function(j){ return j.id!==run.jeId; });
+    saveState('journalEntries');
+    saveState('chartOfAccounts');
+  }
+  S.payrollRuns = getPayrollRuns().filter(function(r){ return r.id!==id; });
+  saveState('payrollRuns');
+  renderPayrollHistory();
+  renderDashboard();
+  toast('Payroll run deleted and journal entry reversed.', 'warn');
 }
 
 // ── Payroll Settings ───────────────────────────────────────
